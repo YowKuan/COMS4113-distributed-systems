@@ -19,8 +19,7 @@ func (mr *MapReduce) KillWorkers() *list.List {
 		args := &ShutdownArgs{}
 		var reply ShutdownReply
 		ok := call(w.address, "Worker.Shutdown", args, &reply)
-		if ok == false {
-			//fmt.Printf("DoWork: RPC %s shutdown error\n", w.address)
+		if !ok {
 		} else {
 			l.PushBack(reply.Njobs)
 		}
@@ -31,7 +30,6 @@ func (mr *MapReduce) KillWorkers() *list.List {
 func (mr *MapReduce) getAvailableWorkers() {
 	//fmt.Println("get available workers")
 	for worker := range mr.registerChannel {
-		//fmt.Println("get worker:", worker)
 		mr.Workers[worker] = &WorkerInfo{address: worker}
 		mr.availableWorkers <- worker
 	}
@@ -40,13 +38,11 @@ func (mr *MapReduce) getAvailableWorkers() {
 func (mr *MapReduce) getJobs(jobType string, jobAmount int) {
 	if jobType == "map" {
 		for i := 0; i < jobAmount; i++ {
-			//fmt.Println("get map job id:", i)
 
 			mr.mapJobsToDo <- i
 		}
 	} else if jobType == "reduce" {
 		for i := 0; i < jobAmount; i++ {
-			//fmt.Println("get reduce job id:", i)
 
 			mr.reduceJobsToDo <- i
 		}
@@ -57,7 +53,6 @@ func (mr *MapReduce) getJobs(jobType string, jobAmount int) {
 
 func (mr *MapReduce) assignMapJobs() {
 	for job := range mr.mapJobsToDo {
-		//fmt.Println("doing map job", job)
 		worker := <-mr.availableWorkers
 		go func(job int, worker string) {
 			args := &DoJobArgs{
@@ -75,7 +70,6 @@ func (mr *MapReduce) assignMapJobs() {
 				mr.availableWorkers <- worker
 
 			} else {
-				//fmt.Printf("DoMap: RPC %s do job failure! reassign the  job id %v  \n", worker, job)
 				mr.mapJobsToDo <- job
 			}
 
@@ -89,7 +83,6 @@ func (mr *MapReduce) trackMapJob() {
 	for {
 		if mr.mapCompleted == mr.nMap {
 			mr.mapDone = true
-			//fmt.Println("map process complete, start doing reduce")
 			break
 		}
 	}
@@ -114,13 +107,9 @@ func (mr *MapReduce) assignReduceJobs() {
 					var reply DoJobReply
 					ok := call(worker, "Worker.DoJob", args, &reply)
 					if ok {
-						//fmt.Println("reduce job id completed:", job)
 						mr.reduceCompleted += 1
 						mr.availableWorkers <- worker
-
-						//fmt.Println("cur reduceCompleted", mr.reduceCompleted)
 					} else {
-						//fmt.Printf("DoReduce: RPC %s do job failure! reassign the job...\n", worker)
 						mr.reduceJobsToDo <- job
 					}
 
@@ -138,7 +127,6 @@ func (mr *MapReduce) trackReduceJob() {
 		if mr.reduceCompleted == mr.nReduce {
 			mr.reduceDone = true
 			mr.allComplete = true
-			//fmt.Println("map process complete, start doing reduce")
 			break
 		}
 	}
@@ -148,13 +136,11 @@ func (mr *MapReduce) RunMaster() *list.List {
 	// Your code here
 
 	go mr.getAvailableWorkers()
-	//fmt.Println("map total jobs", mr.nMap)
 	go mr.getJobs("map", mr.nMap)
 
 	go mr.trackMapJob()
 	go mr.assignMapJobs()
 
-	//fmt.Println("reduce total jobs", mr.nReduce)
 	go mr.getJobs("reduce", mr.nReduce)
 	go mr.trackReduceJob()
 	go mr.assignReduceJobs()
