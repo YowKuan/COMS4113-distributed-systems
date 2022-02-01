@@ -3,7 +3,6 @@ package mapreduce
 import (
 	"container/list"
 	"fmt"
-	"sync"
 )
 
 type WorkerInfo struct {
@@ -36,24 +35,18 @@ func (mr *MapReduce) getAvailableWorkers() {
 	}
 }
 
-func (mr *MapReduce) getJobs(jobType string, jobAmount int) {
-	if jobType == "map" {
-		for i := 0; i < jobAmount; i++ {
-
-			mr.mapJobsToDo <- i
-		}
-	} else if jobType == "reduce" {
-		for i := 0; i < jobAmount; i++ {
-
-			mr.reduceJobsToDo <- i
-		}
-
+func (mr *MapReduce) getJobs() {
+	for i := 0; i < mr.nMap; i++ {
+		mr.mapJobsToDo <- i
 	}
-
+	for i := 0; i < mr.nReduce; i++ {
+		mr.reduceJobsToDo <- i
+	}
 }
 
 func (mr *MapReduce) assignMapJobs() {
 	for job := range mr.mapJobsToDo {
+		fmt.Println("try doing job", job)
 		worker := <-mr.availableWorkers
 		go func(job int, worker string) {
 			args := &DoJobArgs{
@@ -84,6 +77,7 @@ func (mr *MapReduce) assignMapJobs() {
 func (mr *MapReduce) trackMapJob() {
 	for {
 		if mr.mapCompleted == mr.nMap {
+			fmt.Println("map completed, closing channel......")
 			mr.mapDone <- true
 			close(mr.mapJobsToDo)
 			break
@@ -91,7 +85,7 @@ func (mr *MapReduce) trackMapJob() {
 	}
 }
 
-func (mr *MapReduce) assignReduceJobs(waitgroup *sync.WaitGroup) {
+func (mr *MapReduce) assignReduceJobs() {
 	for job := range mr.reduceJobsToDo {
 		fmt.Println("doing reduce job", job)
 		worker := <-mr.availableWorkers
@@ -136,18 +130,17 @@ func (mr *MapReduce) trackReduceJob() {
 
 func (mr *MapReduce) RunMaster() *list.List {
 	// Your code here
-	var waitgroup sync.WaitGroup
+	//var waitgroup sync.WaitGroup
 
 	go mr.getAvailableWorkers()
-	go mr.getJobs("map", mr.nMap)
+	go mr.getJobs()
 
 	go mr.trackMapJob()
 	go mr.assignMapJobs()
 	<-mr.mapDone
 
-	go mr.getJobs("reduce", mr.nReduce)
 	go mr.trackReduceJob()
-	go mr.assignReduceJobs(&waitgroup)
+	go mr.assignReduceJobs()
 	<-mr.reduceDone
 	//waitgroup.Wait()
 	return mr.KillWorkers()

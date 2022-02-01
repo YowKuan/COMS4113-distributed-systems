@@ -91,7 +91,7 @@ func InitMapReduce(nmap int, nreduce int,
 
 	// initialize any additional state here
 	mr.Workers = make(map[string]*WorkerInfo)
-	mr.availableWorkers = make(chan string)
+	mr.availableWorkers = make(chan string, 500)
 	mr.mapJobsToDo = make(chan int, nmap)
 	mr.reduceJobsToDo = make(chan int, nreduce)
 	mr.mapCompleted = 0
