@@ -72,7 +72,7 @@ func (mr *MapReduce) assignMapJobs() {
 
 			} else {
 				mr.mapJobsToDo <- job
-				mr.availableWorkers <- worker
+				//mr.availableWorkers <- worker
 			}
 
 		}(job, worker)
@@ -114,7 +114,7 @@ func (mr *MapReduce) assignReduceJobs(waitgroup *sync.WaitGroup) {
 			} else {
 				fmt.Println("current reduce failed:", job)
 				mr.reduceJobsToDo <- job
-				mr.availableWorkers <- worker
+				//mr.availableWorkers <- worker
 			}
 			//waitgroup.Done()
 
