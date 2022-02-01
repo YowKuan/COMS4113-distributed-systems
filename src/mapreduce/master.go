@@ -92,11 +92,6 @@ func (mr *MapReduce) trackMapJob() {
 }
 
 func (mr *MapReduce) assignReduceJobs(waitgroup *sync.WaitGroup) {
-	for {
-		if mr.reduceDone {
-			break
-		}
-		if mr.mapDone {
 			for job := range mr.reduceJobsToDo {
 				fmt.Println("doing reduce job", job)
 				worker := <-mr.availableWorkers
@@ -126,10 +121,6 @@ func (mr *MapReduce) assignReduceJobs(waitgroup *sync.WaitGroup) {
 				}(job, worker)
 			}
 
-		}
-
-	}
-
 }
 
 func (mr *MapReduce) trackReduceJob() {
@@ -152,15 +143,14 @@ func (mr *MapReduce) RunMaster() *list.List {
 
 	go mr.trackMapJob()
 	go mr.assignMapJobs()
+  <- mr.mapDone
 
 	go mr.getJobs("reduce", mr.nReduce)
 	go mr.trackReduceJob()
 	go mr.assignReduceJobs(&waitgroup)
-	waitgroup.Wait()
-	for {
-		if mr.allComplete {
-			return mr.KillWorkers()
-		}
+  <- mr.reduceDone
+	//waitgroup.Wait()
+	return mr.KillWorkers()
 
 	}
 

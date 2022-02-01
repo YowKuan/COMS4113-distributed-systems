@@ -72,8 +72,8 @@ type MapReduce struct {
 	reduceJobsToDo   chan int
 	mapCompleted     int
 	reduceCompleted  int
-	mapDone          bool
-	reduceDone       bool
+	mapDone          chan bool
+	reduceDone       chan bool
 	allComplete      bool
 	//wg               sync.WaitGroup
 }
@@ -95,8 +95,8 @@ func InitMapReduce(nmap int, nreduce int,
 	mr.mapJobsToDo = make(chan int, nmap)
 	mr.reduceJobsToDo = make(chan int, nreduce)
 	mr.mapCompleted = 0
-	mr.mapDone = false
-	mr.reduceDone = false
+	mr.mapDone = make(chan bool)
+	mr.reduceDone = make(chan bool)
 	mr.reduceCompleted = 0
 	mr.allComplete = false
 
