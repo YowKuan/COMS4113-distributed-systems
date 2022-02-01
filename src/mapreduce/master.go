@@ -98,7 +98,7 @@ func (mr *MapReduce) assignReduceJobs(waitgroup *sync.WaitGroup) {
 		fmt.Println("using worker:", worker)
 
 		go func(job int, worker string) {
-			waitgroup.Add(1)
+			//waitgroup.Add(1)
 			args := &DoJobArgs{
 				File:          mr.file,
 				Operation:     Reduce,
@@ -116,7 +116,7 @@ func (mr *MapReduce) assignReduceJobs(waitgroup *sync.WaitGroup) {
 				mr.reduceJobsToDo <- job
 				mr.availableWorkers <- worker
 			}
-			waitgroup.Done()
+			//waitgroup.Done()
 
 		}(job, worker)
 	}
