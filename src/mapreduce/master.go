@@ -85,6 +85,7 @@ func (mr *MapReduce) trackMapJob() {
 	for {
 		if mr.mapCompleted == mr.nMap {
 			mr.mapDone = true
+			close(mr.mapJobsToDo)
 			break
 		}
 	}
@@ -134,6 +135,7 @@ func (mr *MapReduce) assignReduceJobs(waitgroup *sync.WaitGroup) {
 func (mr *MapReduce) trackReduceJob() {
 	for {
 		if mr.reduceCompleted == mr.nReduce {
+			close(mr.reduceJobsToDo)
 			mr.reduceDone = true
 			mr.allComplete = true
 			break
