@@ -96,8 +96,10 @@ func (mr *MapReduce) assignReduceJobs(waitgroup *sync.WaitGroup) {
 		}
 		if mr.mapDone {
 			for job := range mr.reduceJobsToDo {
-				//fmt.Println("doing reduce job", job)
+				fmt.Println("doing reduce job", job)
 				worker := <-mr.availableWorkers
+				fmt.Println("using worker:", worker)
+
 				go func(job int, worker string) {
 					waitgroup.Add(1)
 					args := &DoJobArgs{
