@@ -59,7 +59,8 @@ func (mr *MapReduce) assignMapJobs() {
 			ok := call(worker, "Worker.DoJob", args, &reply)
 			if ok {
 				fmt.Println("map job id completed:", job)
-				mr.mapCompleted += 1
+				mr.nCount <- true
+				//mr.mapCompleted += 1
 				fmt.Println("cur mapCompleted", mr.mapCompleted)
 				mr.availableWorkers <- worker
 
@@ -74,16 +75,16 @@ func (mr *MapReduce) assignMapJobs() {
 
 }
 
-func (mr *MapReduce) trackMapJob() {
-	for {
-		if mr.mapCompleted == mr.nMap {
-			fmt.Println("map completed, closing channel......")
-			mr.mapDone <- true
-			close(mr.mapJobsToDo)
-			break
-		}
-	}
-}
+// func (mr *MapReduce) trackMapJob() {
+// 	for {
+// 		if mr.mapCompleted == mr.nMap {
+// 			fmt.Println("map completed, closing channel......")
+// 			mr.mapDone <- true
+// 			close(mr.mapJobsToDo)
+// 			break
+// 		}
+// 	}
+// }
 
 func (mr *MapReduce) assignReduceJobs() {
 	for job := range mr.reduceJobsToDo {
@@ -102,7 +103,8 @@ func (mr *MapReduce) assignReduceJobs() {
 			var reply DoJobReply
 			ok := call(worker, "Worker.DoJob", args, &reply)
 			if ok {
-				mr.reduceCompleted += 1
+				//mr.reduceCompleted += 1
+				mr.nCount <- true
 				fmt.Println("current reduce complete:", mr.reduceCompleted)
 				mr.availableWorkers <- worker
 			} else {
@@ -117,16 +119,42 @@ func (mr *MapReduce) assignReduceJobs() {
 
 }
 
-func (mr *MapReduce) trackReduceJob() {
-	for {
-		if mr.reduceCompleted == mr.nReduce {
-			close(mr.reduceJobsToDo)
-			mr.reduceDone <- true
-			mr.allComplete = true
+func (mr *MapReduce) trackMapJob() {
+	cnt := 0
+	for range mr.nCount {
+		cnt += 1
+		if cnt == mr.nMap {
 			break
 		}
 	}
+	close(mr.mapJobsToDo)
+	mr.mapDone <- true
+	//mr.donePhase <- true
 }
+
+func (mr *MapReduce) trackReduceJob() {
+	cnt := 0
+	for range mr.nCount {
+		cnt += 1
+		if cnt == mr.nReduce {
+			break
+		}
+	}
+	close(mr.reduceJobsToDo)
+	mr.reduceDone <- true
+	//mr.donePhase <- true
+}
+
+// func (mr *MapReduce) trackReduceJob() {
+// 	for {
+// 		if mr.reduceCompleted == mr.nReduce {
+// 			close(mr.reduceJobsToDo)
+// 			mr.reduceDone <- true
+// 			mr.allComplete = true
+// 			break
+// 		}
+// 	}
+// }
 
 func (mr *MapReduce) RunMaster() *list.List {
 	// Your code here
@@ -136,11 +164,11 @@ func (mr *MapReduce) RunMaster() *list.List {
 	go mr.getJobs()
 
 	go mr.trackMapJob()
-	go mr.assignMapJobs()
+	mr.assignMapJobs()
 	<-mr.mapDone
 
 	go mr.trackReduceJob()
-	go mr.assignReduceJobs()
+	mr.assignReduceJobs()
 	<-mr.reduceDone
 	//waitgroup.Wait()
 	return mr.KillWorkers()
