@@ -3,6 +3,7 @@ package mapreduce
 import (
 	"container/list"
 	"fmt"
+	"sync"
 )
 
 type WorkerInfo struct {
@@ -88,7 +89,7 @@ func (mr *MapReduce) trackMapJob() {
 	}
 }
 
-func (mr *MapReduce) assignReduceJobs() {
+func (mr *MapReduce) assignReduceJobs(waitgroup *sync.WaitGroup) {
 	for {
 		if mr.reduceDone {
 			break
@@ -98,6 +99,7 @@ func (mr *MapReduce) assignReduceJobs() {
 				//fmt.Println("doing reduce job", job)
 				worker := <-mr.availableWorkers
 				go func(job int, worker string) {
+					waitgroup.Add(1)
 					args := &DoJobArgs{
 						File:          mr.file,
 						Operation:     Reduce,
@@ -108,10 +110,12 @@ func (mr *MapReduce) assignReduceJobs() {
 					ok := call(worker, "Worker.DoJob", args, &reply)
 					if ok {
 						mr.reduceCompleted += 1
+						fmt.Println("current reduce complete:", mr.reduceCompleted)
 						mr.availableWorkers <- worker
 					} else {
 						mr.reduceJobsToDo <- job
 					}
+					waitgroup.Done()
 
 				}(job, worker)
 			}
@@ -134,6 +138,7 @@ func (mr *MapReduce) trackReduceJob() {
 
 func (mr *MapReduce) RunMaster() *list.List {
 	// Your code here
+	var waitgroup sync.WaitGroup
 
 	go mr.getAvailableWorkers()
 	go mr.getJobs("map", mr.nMap)
@@ -143,7 +148,8 @@ func (mr *MapReduce) RunMaster() *list.List {
 
 	go mr.getJobs("reduce", mr.nReduce)
 	go mr.trackReduceJob()
-	go mr.assignReduceJobs()
+	go mr.assignReduceJobs(&waitgroup)
+	waitgroup.Wait()
 	for {
 		if mr.allComplete {
 			return mr.KillWorkers()

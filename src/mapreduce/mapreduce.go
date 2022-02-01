@@ -59,8 +59,9 @@ type MapReduce struct {
 	registerChannel chan string
 	DoneChannel     chan bool
 	alive           bool
-	l               net.Listener
-	stats           *list.List
+
+	l     net.Listener
+	stats *list.List
 
 	// Map of registered workers that you need to keep up to date
 	Workers map[string]*WorkerInfo
@@ -74,6 +75,7 @@ type MapReduce struct {
 	mapDone          bool
 	reduceDone       bool
 	allComplete      bool
+	//wg               sync.WaitGroup
 }
 
 func InitMapReduce(nmap int, nreduce int,

@@ -3,4 +3,5 @@
 for i in {1..50}
 do
   go test || (echo "Failed at $i run" && break)
+  echo "completed iteration $i"
 done > test_results
