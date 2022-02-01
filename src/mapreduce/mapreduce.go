@@ -67,15 +67,14 @@ type MapReduce struct {
 	Workers map[string]*WorkerInfo
 
 	// add any additional state here
-	availableWorkers chan string
-	mapJobsToDo      chan int
-	reduceJobsToDo   chan int
-	mapCompleted     int
-	reduceCompleted  int
-	mapDone          chan bool
-	reduceDone       chan bool
-	allComplete      bool
-	nCount           chan bool
+	availableWorkers    chan string
+	mapJobsToDo         chan int
+	reduceJobsToDo      chan int
+	mapJobsCompleted    chan bool
+	reduceJobsCompleted chan bool
+	mapDone             chan bool
+	reduceDone          chan bool
+
 	//wg               sync.WaitGroup
 }
 
@@ -95,12 +94,10 @@ func InitMapReduce(nmap int, nreduce int,
 	mr.availableWorkers = make(chan string, 500)
 	mr.mapJobsToDo = make(chan int, nmap)
 	mr.reduceJobsToDo = make(chan int, nreduce)
-	mr.mapCompleted = 0
 	mr.mapDone = make(chan bool)
 	mr.reduceDone = make(chan bool)
-	mr.reduceCompleted = 0
-	mr.allComplete = false
-	mr.nCount = make(chan bool)
+	mr.mapJobsCompleted = make(chan bool)
+	mr.reduceJobsCompleted = make(chan bool)
 
 	return mr
 }
