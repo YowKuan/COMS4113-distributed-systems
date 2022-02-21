@@ -177,10 +177,12 @@ func TestAtMostOnce(t *testing.T) {
   for i := 0; i < 100; i++ {
     v := strconv.Itoa(i)
     pv := ck.PutHash(k, v)
+    //fmt.Println("Puthash function results:", k, v, pv)
     if pv != val {
       t.Fatalf("ck.Puthash() returned %v but expected %v\n", pv, val)
     }
     h := hash(val + v)
+    //fmt.Println("hashed value:", h)
     val = strconv.Itoa(int(h))
   }
 
@@ -654,11 +656,13 @@ func TestRepeatedCrashUnreliable(t *testing.T) {
       n := 0
       for done == false {
         v := strconv.Itoa(n)
+        //fmt.Println("test-putting key-val-pair......", k, v)
         pv := ck.PutHash(k, v)
         if pv != data[k] {
           t.Fatalf("ck.Puthash(%s) returned %v but expected %v at iter %d\n", k, pv, data[k], n)
         }
         h := hash(data[k] + v)
+        //fmt.Println("The hashed value is:", h)
         data[k] = strconv.Itoa(int(h))
         v = ck.Get(k)
         if v != data[k] {

@@ -1,5 +1,6 @@
 mrtmp.*
 /main/diff.out
 /mapreduce/x.txt
+/mapreduce/x.icloud
 /pbservice/x.txt
 /kvpaxos/x.txt
