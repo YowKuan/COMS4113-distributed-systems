@@ -119,6 +119,7 @@ func TestBasic(t *testing.T) {
   fmt.Printf("Test: Single proposer ...\n")
 
   pxa[0].Start(0, "hello")
+
   waitn(t, pxa, 0, npaxos)
 
   fmt.Printf("  ... Passed\n")
@@ -409,7 +410,7 @@ func TestForgetMem(t *testing.T) {
   var m2 runtime.MemStats
   runtime.ReadMemStats(&m2)
   // m2.Alloc about 10 megabytes
-
+  fmt.Println("M2, M1 memory is (respectively):", m2.Alloc, m1.Alloc)
   if m2.Alloc > (m1.Alloc / 2) {
     t.Fatalf("memory use did not shrink enough")
   }
