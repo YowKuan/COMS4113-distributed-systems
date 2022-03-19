@@ -59,8 +59,7 @@ type Paxos struct {
 
 
   // Your data here.
-  //instances sync.Map
-  instances map[int]Instance
+  instances sync.Map
   doneValues sync.Map
 
 }
@@ -106,15 +105,25 @@ func (px *Paxos) ProposerPropose(seq int, v interface{}){
 			continue
 		}
 
-    fmt.Println("Propose Decided Start.")
+    //fmt.Println("Propose Decided Start.")
+    // if px.ProposerDecided(N, seq, v_p) == true {
+    //   decided = true
+    // }
 
-    sendDecided := 0
-    for px.ProposerDecided(N, seq, v_p) == false && sendDecided < 10 {
-      sendDecided += 1
-      time.Sleep(time.Millisecond * 100)
+    for decided == false {
+      if px.ProposerDecided(N, seq, v_p) ==true {
+        decided = true
+      }
     }
-    decided = true
-    fmt.Println(px.doneValues.Load(px.me))
+
+    // sendDecided := 0
+    // for px.ProposerDecided(N, seq, v_p) == false && sendDecided < 10 {
+    //   fmt.Println("proposer tried times: ", sendDecided)
+    //   sendDecided += 1
+    //   time.Sleep(time.Millisecond * 100)
+    // }
+    // decided = true
+    // fmt.Println(px.doneValues.Load(px.me))
 
   }
 }
@@ -134,14 +143,10 @@ func (px *Paxos) ProposerPrepare(N int, seq int, v interface{}) (bool, interface
           var reply PrepareReply
           var ok = false
           if i == px.me {
-            //px.mu.Lock()
             px.AcceptorPrepare(args, &reply)
-            //px.mu.Unlock()
             ok = true
           } else{
-            //px.mu.Lock()
             ok = call(peer, "Paxos.AcceptorPrepare", args, &reply)
-            //px.mu.Unlock()
           }
 
           if ok && reply.Err == "" {
@@ -187,14 +192,10 @@ func (px *Paxos) ProposerAccept(N int, seq int, v_p interface{}) bool {
       var reply AcceptReply
       var ok = false
       if i == px.me {
-        //px.mu.Lock()
         px.AcceptorAccept(args, &reply)
-       // px.mu.Unlock()
         ok = true
       } else{
-        //px.mu.Lock()
         ok = call(peer, "Paxos.AcceptorAccept", args, &reply)
-        //px.mu.Unlock()
       }
 
       if ok && reply.Err == "" {
@@ -226,15 +227,11 @@ func (px *Paxos) ProposerDecided(N int, seq int, v_p interface{}) bool {
       //fmt.Println("111")
       if i == px.me {
         //fmt.Println("222")
-        //px.mu.Lock()
         px.AcceptorDecided(args, &reply)
-        //px.mu.Unlock()
         ok = true
       } else{
         //fmt.Println("333")
-        //px.mu.Lock()
         ok = call(peer, "Paxos.AcceptorDecided", args, &reply)
-        //px.mu.Unlock()
       }
 
       if ok && reply.Err == "" {
@@ -262,24 +259,15 @@ func (px *Paxos) UpdateDoneValue(z_i int, i int){
 }
 
 func (px *Paxos) AcceptorPrepare(args *PrepareArgs, reply *PrepareReply) error {
-  px.mu.Lock()
-  
   //fmt.Println("Acceptor prepare function start")
-  //ins, _ := px.instances.LoadOrStore(args.Seq, &Instance{fate: "Pending", n_p:-1, n_a:-1, v_a: nil})
-  ins, ok := px.instances[args.Seq]
-  if !ok {
-    px.instances[args.Seq] = Instance{fate: "Pending", n_p:-1, n_a:-1, v_a: nil}
-  }
-  //inst := ins.(*Instance)
-  inst := ins
-  
+  ins, _ := px.instances.LoadOrStore(args.Seq, &Instance{fate: "Pending", n_p:-1, n_a:-1, v_a: nil})
+  //check!
+  inst := ins.(*Instance)
   //fmt.Println("1")
   if args.N > inst.n_p {
     //fmt.Println("2")
     //check!
-    //px.instances.Store(args.Seq, &Instance{fate: "Pending", n_p:args.N, n_a:inst.n_a, v_a: inst.v_a})
-    px.instances[args.Seq] = Instance{fate: "Pending", n_p:args.N, n_a:inst.n_a, v_a: inst.v_a}
-
+    px.instances.Store(args.Seq, &Instance{fate: "Pending", n_p:args.N, n_a:inst.n_a, v_a: inst.v_a})
     //extract done value of paxos itself, and give it to the proposer who calls the acceptor.
     var doneValue, _ = px.doneValues.Load(px.me)
     reply.Z_i = doneValue.(int)
@@ -291,44 +279,29 @@ func (px *Paxos) AcceptorPrepare(args *PrepareArgs, reply *PrepareReply) error {
     reply.Higher_N = inst.n_p
     reply.Err = "Refuse to accept"
   }
-  px.mu.Unlock()
   return nil
 }
 
 func (px *Paxos) AcceptorAccept(args *AcceptArgs, reply *AcceptReply) error{
-  px.mu.Lock()
-  
-  //ins, _ := px.instances.LoadOrStore(args.Seq, &Instance{fate: "Pending", n_p: -1, n_a: -1, v_a: nil})
-  ins, ok := px.instances[args.Seq]
-  if !ok {
-    px.instances[args.Seq] = Instance{fate: "Pending", n_p: -1, n_a: -1, v_a: nil}
-  }
-  
+  ins, _ := px.instances.LoadOrStore(args.Seq, &Instance{fate: "Pending", n_p: -1, n_a: -1, v_a: nil})
 
-	//inst := ins.(*Instance)
-  inst := ins
+	inst := ins.(*Instance)
 
 	if args.N >= inst.n_p {
-		//px.instances.Store(args.Seq, &Instance{fate: "Pending", n_p: args.N, n_a: args.N, v_a: args.V_p})
-    px.instances[args.Seq] = Instance{fate: "Pending", n_p: args.N, n_a: args.N, v_a: args.V_p}
+		px.instances.Store(args.Seq, &Instance{fate: "Pending", n_p: args.N, n_a: args.N, v_a: args.V_p})
     //extract done value of paxos itself, and give it to the proposer who calls the acceptor.
     var doneValue, _ = px.doneValues.Load(px.me)
     reply.Z_i = doneValue.(int)
 	} else {
 		reply.Err = "Acceptor didn't accept."
 	}
-  px.mu.Unlock()
 	return nil
 
 }
 
 func (px *Paxos) AcceptorDecided(args *DecidedArgs, reply *DecidedReply) error {
-  px.mu.Lock()
-  
-  //px.instances.Store(args.Seq, &Instance{fate: "Decided", n_p: args.N, n_a: args.N, v_a: args.V_p})
-  px.instances[args.Seq] = Instance{fate: "Decided", n_p: args.N, n_a: args.N, v_a: args.V_p}
+  px.instances.Store(args.Seq, &Instance{fate: "Decided", n_p: args.N, n_a: args.N, v_a: args.V_p})
   //px.doneValues.Store(args.Seq, )
-  px.mu.Unlock()
   return nil
 
 }
@@ -400,17 +373,12 @@ func (px *Paxos) Done(seq int) {
   px.UpdateDoneValue(seq, px.me)
 
   mini := px.Min()
-  d_value, _ := px.doneValues.Load(px.me)
-  fmt.Println("My done value is: ", d_value)
-  fmt.Println("Minimum donevalue is:", mini)
-
+  //d_value, _ := px.doneValues.Load(px.me)
+  //fmt.Println("My done value is: ", d_value)
+  //fmt.Println("Minimum donevalue is:", mini)
   for i := 1; i < mini; i++ {
-    fmt.Println("delete seq number", i)
-    px.mu.Lock()
-    delete(px.instances, i)
-    px.mu.Unlock()
-
-    //px.instances.Delete(i)
+    //fmt.Println("delete seq number", i)
+    px.instances.Delete(i)
   }
 }
 
@@ -422,17 +390,12 @@ func (px *Paxos) Done(seq int) {
 func (px *Paxos) Max() int {
   // Your code here.
   var maxi = -1
-  // px.instances.Range(func(k, v interface{}) bool { // seq is the key
-	// 	if k.(int) > maxi {
-	// 		maxi = k.(int)
-	// 	}
-	// 	return true
-	// })
-  for k, _ := range px.instances {
-    if k > maxi {
-      maxi = k
-    }
-  }
+  px.instances.Range(func(k, v interface{}) bool { // seq is the key
+		if k.(int) > maxi {
+			maxi = k.(int)
+		}
+		return true
+	})
   return maxi
 }
 
@@ -474,6 +437,10 @@ func (px *Paxos) Min() int {
 		}
 		return true
 	})
+  for i := 1; i < mini; i++ {
+    //fmt.Println("delete seq number", i)
+    px.instances.Delete(i)
+  }
   return mini+1
 }
 
@@ -486,13 +453,18 @@ func (px *Paxos) Min() int {
 //
 func (px *Paxos) Status(seq int) (bool, interface{}) {
   // Your code here.
-  //ins, ok := px.instances.Load(seq)
-  ins, ok := px.instances[seq]
+  // If Status() is called with a sequence number less than Min(), 
+  //Status() should return false (indicating no agreement).
+  mini := px.Min()
+  if seq < mini {
+    return false, nil
+  }
+  ins, ok := px.instances.Load(seq)
 	if ok {
-      if ins.fate == "Decided"{
+      if ins.(*Instance).fate == "Decided"{
         //fmt.Println("Status check: decided")
         //fmt.Println(ins.(*Instance).v_a)
-        return true, ins.v_a
+        return true, ins.(*Instance).v_a
 
       }else{
         return false, nil
@@ -526,7 +498,7 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
 
 
   // Your initialization code here.
-  px.instances = make(map[int]Instance)
+  px.instances = sync.Map{}
 	px.doneValues = sync.Map{}
 
   for i, _ := range px.peers {
