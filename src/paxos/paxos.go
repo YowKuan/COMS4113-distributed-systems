@@ -110,19 +110,19 @@ func (px *Paxos) ProposerPropose(seq int, v interface{}){
     //   decided = true
     // }
 
-    for decided == false {
-      if px.ProposerDecided(N, seq, v_p) ==true {
-        decided = true
-      }
-    }
-
-    // sendDecided := 0
-    // for px.ProposerDecided(N, seq, v_p) == false && sendDecided < 10 {
-    //   fmt.Println("proposer tried times: ", sendDecided)
-    //   sendDecided += 1
-    //   time.Sleep(time.Millisecond * 100)
+    // for decided == false {
+    //   if px.ProposerDecided(N, seq, v_p) ==true {
+    //     decided = true
+    //   }
     // }
-    // decided = true
+
+    sendDecided := 0
+    for px.ProposerDecided(N, seq, v_p) == false && sendDecided < 10 {
+      fmt.Println("proposer tried times: ", sendDecided)
+      sendDecided += 1
+      time.Sleep(time.Millisecond * 100)
+    }
+    decided = true
     // fmt.Println(px.doneValues.Load(px.me))
 
   }
