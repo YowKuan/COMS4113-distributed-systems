@@ -266,7 +266,7 @@ func (px *Paxos) UpdateDoneValue(z_i int, i int){
 
 func (px *Paxos) AcceptorPrepare(args *PrepareArgs, reply *PrepareReply) error {
   //fmt.Println("Acceptor prepare function start")
-  ins, loaded := px.instances.LoadOrStore(args.Seq, &Instance{fate: "Pending", n_p:-1, n_a:-1, v_a: nil})
+  ins, _ := px.instances.LoadOrStore(args.Seq, &Instance{fate: "Pending", n_p:-1, n_a:-1, v_a: nil})
   //check!
   inst := ins.(*Instance)
   //fmt.Println("loaded:", loaded, inst)
@@ -295,7 +295,7 @@ func (px *Paxos) AcceptorPrepare(args *PrepareArgs, reply *PrepareReply) error {
 }
 
 func (px *Paxos) AcceptorAccept(args *AcceptArgs, reply *AcceptReply) error{
-  ins, loaded := px.instances.LoadOrStore(args.Seq, &Instance{fate: "Pending", n_p: -1, n_a: -1, v_a: nil})
+  ins, _ := px.instances.LoadOrStore(args.Seq, &Instance{fate: "Pending", n_p: -1, n_a: -1, v_a: nil})
   
 
 	inst := ins.(*Instance)
