@@ -457,10 +457,10 @@ func (px *Paxos) Min() int {
 		}
 		return true
 	})
-  for i := 1; i < mini; i++ {
-    //fmt.Println("delete seq number", i)
-    px.instances.Delete(i)
-  }
+  // for i := 1; i < mini; i++ {
+  //   //fmt.Println("delete seq number", i)
+  //   px.instances.Delete(i)
+  // }
   return mini+1
 }
 
@@ -523,6 +523,8 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
   px.instances = sync.Map{}
 	px.doneValues = sync.Map{}
 
+
+
   for i, _ := range px.peers {
 		px.doneValues.Store(i, -1)
 	}
@@ -542,6 +544,14 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
       log.Fatal("listen error: ", e);
     }
     px.l = l
+
+    //add periodic memory cleaning
+    go func() {
+      for px.dead == false{
+        px.Done(-1)
+        time.Sleep(time.Millisecond * 100)
+      }
+    }()
     
     // please do not change any of the following code,
     // or do anything to subvert it.
