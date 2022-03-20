@@ -77,13 +77,11 @@ func (px *Paxos) ProposerPropose(seq int, v interface{}){
     //Hint: the tester calls Kill() when it wants your Paxos to shut down; 
     //Kill() sets px.dead. You should check px.dead in any loops you have that might run for a while, 
     //and break out of the loop if px.dead is true. It’s particularly important to do this in any long-running threads you create.
-		if time.Now().Sub(start_time).Seconds() > 0.01 {
+		if time.Now().Sub(start_time) / time.Millisecond  > 100 {
       start_time = time.Now()
       if px.dead{
         return
-
       }
-			
 		}
 
     var v_p = v
@@ -94,6 +92,7 @@ func (px *Paxos) ProposerPropose(seq int, v interface{}){
     if !reachMajority {
       //fmt.Println("majority not reached!")
       N = highest_n + 1
+      time.Sleep(time.Millisecond * time.Duration(rand.Intn(500)))
       continue
 
     }
@@ -101,7 +100,7 @@ func (px *Paxos) ProposerPropose(seq int, v interface{}){
 
     if px.ProposerAccept(N, seq, v_p) == false {
 			// if we failed the accept phase -> re-start from the prepare phase
-			time.Sleep(time.Millisecond * 100)
+			time.Sleep(time.Millisecond * time.Duration(rand.Intn(500)))
 			continue
 		}
 
@@ -111,18 +110,20 @@ func (px *Paxos) ProposerPropose(seq int, v interface{}){
     // }
 
     // for decided == false {
-    //   if px.ProposerDecided(N, seq, v_p) ==true {
-    //     decided = true
-    //   }
+    if px.ProposerDecided(N, seq, v_p) ==true {
+      decided = true   
+    } else{
+      time.Sleep(time.Millisecond * time.Duration(rand.Intn(500)))
+    }
     // }
 
-    sendDecided := 0
-    for px.ProposerDecided(N, seq, v_p) == false && sendDecided < 10 {
-      fmt.Println("proposer tried times: ", sendDecided)
-      sendDecided += 1
-      time.Sleep(time.Millisecond * 100)
-    }
-    decided = true
+    // sendDecided := 0
+    // for px.ProposerDecided(N, seq, v_p) == false && sendDecided < 10 {
+    //   fmt.Println("proposer tried times: ", sendDecided)
+    //   sendDecided += 1
+    //   time.Sleep(time.Millisecond * 100)
+    // }
+    // decided = true
     // fmt.Println(px.doneValues.Load(px.me))
 
   }
@@ -184,10 +185,15 @@ func (px *Paxos) ProposerPrepare(N int, seq int, v interface{}) (bool, interface
 func (px *Paxos) ProposerAccept(N int, seq int, v_p interface{}) bool {
   var count = 0
   var wg sync.WaitGroup
+
   for i, peer := range px.peers {
     wg.Add(1)
     go func (wg *sync.WaitGroup, i int, peer string, N int, seq int, v_p interface {}, count *int){
       defer wg.Done()
+      if *count >= (len(px.peers) + 1)/ 2{
+        //fmt.Println("already majority, return !!")
+        return
+      }
       args := &AcceptArgs{seq, N, v_p}
       var reply AcceptReply
       var ok = false
@@ -260,14 +266,20 @@ func (px *Paxos) UpdateDoneValue(z_i int, i int){
 
 func (px *Paxos) AcceptorPrepare(args *PrepareArgs, reply *PrepareReply) error {
   //fmt.Println("Acceptor prepare function start")
-  ins, _ := px.instances.LoadOrStore(args.Seq, &Instance{fate: "Pending", n_p:-1, n_a:-1, v_a: nil})
+  ins, loaded := px.instances.LoadOrStore(args.Seq, &Instance{fate: "Pending", n_p:-1, n_a:-1, v_a: nil})
   //check!
   inst := ins.(*Instance)
+  //fmt.Println("loaded:", loaded, inst)
   //fmt.Println("1")
   if args.N > inst.n_p {
     //fmt.Println("2")
     //check!
-    px.instances.Store(args.Seq, &Instance{fate: "Pending", n_p:args.N, n_a:inst.n_a, v_a: inst.v_a})
+    if inst.fate == "Decided"{
+      px.instances.Store(args.Seq, &Instance{fate: "Decided", n_p:args.N, n_a:inst.n_a, v_a: inst.v_a})
+    } else{
+      px.instances.Store(args.Seq, &Instance{fate: "Pending", n_p:args.N, n_a:inst.n_a, v_a: inst.v_a})
+    }
+    
     //extract done value of paxos itself, and give it to the proposer who calls the acceptor.
     var doneValue, _ = px.doneValues.Load(px.me)
     reply.Z_i = doneValue.(int)
@@ -283,12 +295,20 @@ func (px *Paxos) AcceptorPrepare(args *PrepareArgs, reply *PrepareReply) error {
 }
 
 func (px *Paxos) AcceptorAccept(args *AcceptArgs, reply *AcceptReply) error{
-  ins, _ := px.instances.LoadOrStore(args.Seq, &Instance{fate: "Pending", n_p: -1, n_a: -1, v_a: nil})
+  ins, loaded := px.instances.LoadOrStore(args.Seq, &Instance{fate: "Pending", n_p: -1, n_a: -1, v_a: nil})
+  
 
 	inst := ins.(*Instance)
+  //fmt.Println("loaded:", loaded, inst)
 
 	if args.N >= inst.n_p {
-		px.instances.Store(args.Seq, &Instance{fate: "Pending", n_p: args.N, n_a: args.N, v_a: args.V_p})
+    if inst.fate == "Decided"{
+      px.instances.Store(args.Seq, &Instance{fate: "Decided", n_p: args.N, n_a: args.N, v_a: args.V_p})
+    } else{
+      px.instances.Store(args.Seq, &Instance{fate: "Pending", n_p: args.N, n_a: args.N, v_a: args.V_p})
+
+    } 
+		
     //extract done value of paxos itself, and give it to the proposer who calls the acceptor.
     var doneValue, _ = px.doneValues.Load(px.me)
     reply.Z_i = doneValue.(int)
@@ -464,9 +484,11 @@ func (px *Paxos) Status(seq int) (bool, interface{}) {
       if ins.(*Instance).fate == "Decided"{
         //fmt.Println("Status check: decided")
         //fmt.Println(ins.(*Instance).v_a)
+        //fmt.Println("Decided", ins.(*Instance).v_a, ins.(*Instance).n_a, px.me)
         return true, ins.(*Instance).v_a
 
       }else{
+        //fmt.Println("Not yet decided", ins.(*Instance).v_a, ins.(*Instance).n_a, px.me)
         return false, nil
       }
     }
