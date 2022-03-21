@@ -381,6 +381,7 @@ func TestUnreliable(t *testing.T) {
         key := strconv.Itoa(me)
         pv := myck.Get(key)
         ov := myck.PutHash(key, "0")
+        fmt.Println("", ov)
         if ov != pv {
           t.Fatalf("wrong value; expected %s but got %s", pv, ov)
         }

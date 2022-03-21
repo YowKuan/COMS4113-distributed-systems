@@ -2,10 +2,20 @@ package kvpaxos
 
 import "net/rpc"
 import "fmt"
+import "crypto/rand"
+import "math/big"
+import "time"
 
 type Clerk struct {
   servers []string
   // You will have to modify this struct.
+}
+
+func nrand() int64 {
+	max := big.NewInt(int64(1) << 62)
+	bigx, _ := rand.Int(rand.Reader, max)
+	x := bigx.Int64()
+	return x
 }
 
 
@@ -56,7 +66,24 @@ func call(srv string, rpcname string,
 //
 func (ck *Clerk) Get(key string) string {
   // You will have to modify this function.
-  return ""
+  args := &GetArgs{key, nrand()}
+	reply := &GetReply{}
+
+  var ok = false
+  var i = 0
+  for !ok {
+    ok = call(ck.servers[i], "KVPaxos.Get", args, reply)
+    if !ok{
+      i+=1
+      i%=len(ck.servers)
+      time.Sleep(time.Millisecond *  time.Duration(100 * i))
+    } else{
+      break
+    }
+
+  }
+
+  return reply.Value
 }
 
 //
@@ -65,6 +92,30 @@ func (ck *Clerk) Get(key string) string {
 //
 func (ck *Clerk) PutExt(key string, value string, dohash bool) string {
   // You will have to modify this function.
+  var args *
+  PutArgs
+  if dohash{
+    args = &PutArgs{key, value, "PutHash", nrand()}
+  } else{
+    args = &PutArgs{key, value, "Put", nrand()}
+  }
+  
+	reply := &PutReply{}
+	var ok = false
+	var i = 0
+  for !ok{
+    ok = call(ck.servers[i], "KVPaxos.Put", args, reply)
+    if !ok{
+      i+=1
+      i%=len(ck.servers)
+      time.Sleep(time.Millisecond *  time.Duration(100 * i))
+    } else{
+      break
+    }
+  }
+  if dohash{
+    return reply.PreviousValue
+  }
   return ""
 }
 
