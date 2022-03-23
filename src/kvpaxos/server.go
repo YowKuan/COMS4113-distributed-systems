@@ -52,7 +52,7 @@ func (kv *KVPaxos) DoPut(op string, Key string, Value string, opID int64) string
   _, hashValExist := kv.hashVals.Load(opID)
   if hashValExist{
     if op == "Put"{
-      fmt.Println("Duplicate Put operation! Reject!")
+      //fmt.Println("Duplicate Put operation! Reject!")
       return ""
     } else{
       previous_val, _ := kv.hashVals.Load(opID)
@@ -81,10 +81,10 @@ func (kv *KVPaxos) DoPut(op string, Key string, Value string, opID int64) string
       kv.database.Store(Key, strconv.FormatUint(uint64(hash(pre_val+Value)), 10))
     }
     
-    fmt.Println("Previous value is:", pre_val)
+    //fmt.Println("Previous value is:", pre_val)
     //kv.database.Store(key, fmt.Sprint(hash(value+pre_val)))
-    new_value, _ := kv.database.Load(Key)
-    fmt.Println("Updated value is:", new_value)
+    //new_value, _ := kv.database.Load(Key)
+    //fmt.Println("Updated value is:", new_value)
 
 
   }
@@ -95,9 +95,20 @@ func (kv *KVPaxos) DoPut(op string, Key string, Value string, opID int64) string
 
 func (kv *KVPaxos) CheckConsistency(cur_op Op) {
   //fmt.Println("check consistency start")
+  //start_time := time.Now()
+
   to := 10 * time.Millisecond
   var consistent = false
   for {
+    // if time.Now().Sub(start_time) / time.Millisecond  > 100 {
+    //   start_time = time.Now()
+    //   if kv.dead{
+    //     return
+    //   }
+    // }
+    if kv.dead{
+      return 
+    }
     decided, prev_op := kv.px.Status(kv.seq)
     if decided {
       // seq already decided. So we need to update our value according to the decided value of paxos server.
@@ -125,8 +136,8 @@ func (kv *KVPaxos) CheckConsistency(cur_op Op) {
         consistent = true
       }
       time.Sleep(to)
-      if to < 10 * time.Second {
-        to += 20 * time.Millisecond
+      if to < 1 * time.Second {
+        to += 2 * time.Millisecond
       }
 
 
@@ -149,6 +160,10 @@ func (kv *KVPaxos) DoGet(key string) string{
 }
 
 func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
+  if kv.dead{
+    reply.Err = "server dead"
+    return nil
+  }
   // Your code here.
   kv.mu.Lock()
   defer kv.mu.Unlock()
@@ -163,6 +178,10 @@ func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
 }
 
 func (kv *KVPaxos) Put(args *PutArgs, reply *PutReply) error {
+  if kv.dead{
+    reply.Err = "server dead"
+    return nil
+  }
   // Your code here.
   kv.mu.Lock()
   defer kv.mu.Unlock()
@@ -174,6 +193,8 @@ func (kv *KVPaxos) Put(args *PutArgs, reply *PutReply) error {
   pre_val := kv.DoPut(args.Op, args.Key, args.Value, args.Hash)
   //fmt.Println("DoPut Complete")
   reply.PreviousValue = pre_val
+
+  
 
   return nil
 }
