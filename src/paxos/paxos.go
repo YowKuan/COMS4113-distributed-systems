@@ -547,6 +547,9 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
 
     //add periodic memory cleaning
     go func() {
+      if px.dead{
+        return
+      }
       for px.dead == false{
         px.Done(-1)
         time.Sleep(time.Millisecond * 100)

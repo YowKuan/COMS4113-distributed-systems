@@ -60,9 +60,9 @@ func (vs *ViewServer) Ping(args *PingArgs, reply *PingReply) error {
 		//fmt.Println("currentView nil function ends")
 	}
 	if args.Me == vs.currentView.Primary {
-		//fmt.Println(args.Viewnum, vs.currentView.Viewnum)
+		fmt.Println(args.Viewnum, vs.currentView.Viewnum)
 		if args.Viewnum >= vs.previousView.Viewnum {
-			//fmt.Println("Primary ACKed current view")
+			fmt.Println("Primary ACKed current view")
 
 			vs.primary_acked = true
 			// fmt.Println("Past previous viewnum", vs.previousView.Viewnum)
@@ -162,7 +162,7 @@ func (vs *ViewServer) tick() {
 	for key, val := range vs.recentHeard {
 		if time.Now().After(val.Add(PingInterval * DeadPings)) {
 			if key == vs.currentView.Primary {
-				//fmt.Println("Primary with key crashed:", key)
+				fmt.Println("Primary with key crashed:", key)
 				if vs.previousView.Viewnum+1 > vs.currentView.Viewnum && vs.primary_acked {
 					if vs.currentView.Backup != "" {
 						vs.currentView.Primary = vs.currentView.Backup
@@ -174,10 +174,10 @@ func (vs *ViewServer) tick() {
 						//fmt.Println("Current new view is:", vs.currentView)
 					}
 				} else {
-					//fmt.Println("There is no backup to replace failed primary...")
+					fmt.Println("There is no backup to replace failed primary...")
 				}
 			} else if key == vs.currentView.Backup {
-				//fmt.Println("Backup crashed with key", key)
+				fmt.Println("Backup crashed with key", key)
 				vs.promoteIdleTobackup()
 				vs.currentView.Viewnum += 1
 				vs.primary_acked = false

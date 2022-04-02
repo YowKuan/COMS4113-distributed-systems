@@ -155,6 +155,7 @@ func (pb *PBServer) PutExt(args *PutArgs, reply *PutReply) error {
 	} 
 	reply.PreviousValue = pb.keyValStore[args.Key]
 	pb.Update(args.Key, args.Value, args.DoHash, args.HashVal)
+	fmt.Println("Cur map:", pb.keyValStore)
 
 
 	sargs := UpdateSyncArgs{args.Key, args.Value, args.DoHash, args.HashVal, pb.me}
