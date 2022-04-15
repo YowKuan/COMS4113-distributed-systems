@@ -90,7 +90,8 @@ func (ss *ShardState) Bootstrap(origin *ShardState){
 
 func (kv *ShardKV) CheckComplete(seq int) (Op, error){
   
-  sleepTime := 50 * time.Millisecond
+  //sleepTime := 50 * time.Millisecond
+  sleepTime := 10 * time.Millisecond
   for {
     decided, op := kv.px.Status(seq)
     if decided{
@@ -98,7 +99,8 @@ func (kv *ShardKV) CheckComplete(seq int) (Op, error){
     }
     time.Sleep(sleepTime)
     if sleepTime < 1000 * time.Millisecond{
-      sleepTime += (50 * time.Millisecond)
+      //sleepTime += (50 * time.Millisecond)
+      sleepTime += (20 * time.Millisecond)
       // sleepTime *= 2
     }
   }
@@ -431,7 +433,8 @@ func (kv *ShardKV) tick() {
 						ops = append(ops, op)
           }
         } else{
-          wait := 100*(kv.gid-100+2)
+          //wait := 100*(kv.gid-100+2)
+          wait := 30*(kv.gid-100+2)
           time.Sleep(time.Millisecond * time.Duration(wait) )
           //migrate fail
           return 
