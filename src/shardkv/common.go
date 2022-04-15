@@ -24,6 +24,10 @@ type PutArgs struct {
   // You'll have to add definitions here.
   // Field names must start with capital letters,
   // otherwise RPC will break.
+  ClientID int64
+  OpID int64
+  ConfigNum int
+  Shard int
 
 }
 
@@ -35,12 +39,36 @@ type PutReply struct {
 type GetArgs struct {
   Key string
   // You'll have to add definitions here.
+  ClientID int64
+  OpID int64
+  ConfigNum int
+  Shard int
+
 }
 
 type GetReply struct {
   Err Err
   Value string
 }
+
+
+type BootstrapArgs struct {
+	Shard        int
+	ConfigNum    int
+}
+
+type BootstrapReply struct {
+	ShardState   ShardState
+	ProducerGID  int64
+	ConfigNum    int
+	Shard        int
+	Err          string
+}
+
+type ReconfigureArgs struct {
+	NewConfigNum    int
+}
+
 
 
 func hash(s string) uint32 {

@@ -93,6 +93,7 @@ func TestBasic(t *testing.T) {
 	ck.Put("a", "x")
 	v := ck.PutHash("a", "b")
 	if v != "x" {
+		//fmt.Println("wrong v", v)
 		t.Fatalf("Puthash got wrong value")
 	}
 	ov := NextValue("x", "b")

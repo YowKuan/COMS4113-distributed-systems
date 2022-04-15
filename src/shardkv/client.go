@@ -5,20 +5,33 @@ import "net/rpc"
 import "time"
 import "sync"
 import "fmt"
+import "crypto/rand"
+import "math/big"
 
 type Clerk struct {
   mu sync.Mutex // one RPC at a time
   sm *shardmaster.Clerk
   config shardmaster.Config
   // You'll have to modify Clerk.
+
+  //unique clientID for each client
+  clientID int64
 }
 
-
+func nrand() int64 {
+	max := big.NewInt(int64(1) << 62)
+	bigx, _ := rand.Int(rand.Reader, max)
+	x := bigx.Int64()
+	return x
+}
 
 func MakeClerk(shardmasters []string) *Clerk {
   ck := new(Clerk)
   ck.sm = shardmaster.MakeClerk(shardmasters)
   // You'll have to modify MakeClerk.
+  // Get latest config
+  ck.config = ck.sm.Query(-1)
+  ck.clientID = nrand()
   return ck
 }
 
@@ -79,6 +92,7 @@ func (ck *Clerk) Get(key string) string {
   defer ck.mu.Unlock()
 
   // You'll have to modify Get().
+  opID := nrand()
 
   for {
     shard := key2shard(key)
@@ -92,6 +106,10 @@ func (ck *Clerk) Get(key string) string {
       for _, srv := range servers {
         args := &GetArgs{}
         args.Key = key
+        args.ClientID = ck.clientID
+        args.OpID = opID
+        args.ConfigNum = ck.config.Num
+        args.Shard = shard
         var reply GetReply
         ok := call(srv, "ShardKV.Get", args, &reply)
         if ok && (reply.Err == OK || reply.Err == ErrNoKey) {
@@ -115,8 +133,8 @@ func (ck *Clerk) PutExt(key string, value string, dohash bool) string {
   ck.mu.Lock()
   defer ck.mu.Unlock()
 
+  opID := nrand()
   // You'll have to modify Put().
-
   for {
     shard := key2shard(key)
 
@@ -131,6 +149,11 @@ func (ck *Clerk) PutExt(key string, value string, dohash bool) string {
         args.Key = key
         args.Value = value
         args.DoHash = dohash
+        args.ClientID = ck.clientID
+        args.OpID = opID
+        args.ConfigNum = ck.config.Num
+        args.Shard = shard
+
         var reply PutReply
         ok := call(srv, "ShardKV.Put", args, &reply)
         if ok && reply.Err == OK {
