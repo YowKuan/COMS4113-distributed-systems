@@ -90,16 +90,16 @@ func (ss *ShardState) Bootstrap(origin *ShardState){
 
 func (kv *ShardKV) CheckComplete(seq int) (Op, error){
   
-  sleepTime := 100 * time.Millisecond
+  sleepTime := 50 * time.Millisecond
   for {
     decided, op := kv.px.Status(seq)
     if decided{
       return op.(Op), nil
     }
     time.Sleep(sleepTime)
-    if sleepTime < 4000 * time.Millisecond{
-      // sleepTime += (30 * time.Millisecond)
-      sleepTime *= 2
+    if sleepTime < 1000 * time.Millisecond{
+      sleepTime += (50 * time.Millisecond)
+      // sleepTime *= 2
     }
   }
   //return Op{}, errors.New("Not complete")
@@ -168,7 +168,7 @@ func (kv *ShardKV) Execute(op Op) error{
 
 //Using Paxos to maintain consistency within replica group
 func (kv *ShardKV) Propose(xop Op) error{
-  fmt.Println("Proposing:", kv.kvseq, kv.gid, kv.me, xop)
+  //fmt.Println("Proposing:", kv.kvseq, kv.gid, kv.me, xop)
   for {
    
     kv.px.Start(kv.kvseq + 1, xop)
@@ -177,13 +177,30 @@ func (kv *ShardKV) Propose(xop Op) error{
     //wait until this sequence number is completed
     op, err := kv.CheckComplete(kv.kvseq + 1)
     //fmt.Println(kv.kvseq, kv.gid, op)
-    fmt.Println("Doing:", kv.kvseq, kv.gid, kv.me, op)
+    //fmt.Println("Doing:", kv.kvseq, kv.gid, kv.me, op)
     if err != nil{
       return err
     }
     //Execute the operation
     kv.Execute(op)
     kv.kvseq += 1
+    if op.Operation == "Reconfig"{
+      args := op.Value.(ReconfigureArgs)
+      if xop.Operation == "Get"{
+        argsIncoming := xop.Value.(GetArgs)
+        if argsIncoming.ConfigNum < args.NewConfigNum {
+
+          kv.px.Done(kv.kvseq)
+          return errors.New("ErrWrongGroup")
+        } 
+      }else if xop.Operation == "Put" || xop.Operation == "PutHash"{
+        argsIncoming := xop.Value.(PutArgs)
+        if argsIncoming.ConfigNum < args.NewConfigNum{
+          kv.px.Done(kv.kvseq)
+          return errors.New("ErrWrongGroup")
+        } 
+      }
+    }
     //Check whether the executed operation is the one we're proposing. If yes, we're done.
     if reflect.DeepEqual(op, xop){
       break
@@ -204,7 +221,8 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) error {
   if kv.config.Num != args.ConfigNum ||  kv.gid != kv.config.Shards[key2shard(args.Key)] {
     //FIRST CHECK ConfigNum is identical, second check whether this group serve this key.
     reply.Err = ErrWrongGroup
-    return errors.New("Get: Wrong Group!")
+    return nil
+    //return errors.New("Get: Wrong Group!")
   }
   //Then check whether this operationID has been done before.
   value, ok := kv.shardState[args.Shard].PreVals[args.OpID]
@@ -219,6 +237,13 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) error {
   err := kv.Propose(op)
 
   if err != nil{
+    if err.Error() == "ErrWrongGroup"{
+      //fmt.Println("detected err wrong group:")
+      reply.Err = ErrWrongGroup
+
+    }
+    
+
     return err
   }
   value, ok = kv.shardState[args.Shard].Database[args.Key]
@@ -245,7 +270,8 @@ func (kv *ShardKV) Put(args *PutArgs, reply *PutReply) error {
     reply.Err = ErrWrongGroup
     // fmt.Println(kv.config.Num, args.ConfigNum)
     // fmt.Println(kv.gid, kv.config.Shards[key2shard(args.Key)])
-    return errors.New("Put: Wrong Group!")
+    return nil
+    //return errors.New("Put: Wrong Group!")
   }
 
   value, ok := kv.shardState[args.Shard].PreVals[args.OpID]
@@ -264,11 +290,16 @@ func (kv *ShardKV) Put(args *PutArgs, reply *PutReply) error {
   err := kv.Propose(op)
 
   if err != nil{
-    reply.Err = "Propose Failure"
+    if err.Error() == "ErrWrongGroup"{
+      //fmt.Println("detected err wrong group:")
+      reply.Err = ErrWrongGroup
+    }
+    //reply.Err = "Propose Failure"
     return err
   }
   reply.Err = OK
   if args.DoHash{
+    //fmt.Println(args.Key, args.Value, args.OpID, kv.shardState[args.Shard].PreVals[args.OpID])
     reply.PreviousValue = kv.shardState[args.Shard].PreVals[args.OpID]
   }
   return nil
@@ -308,9 +339,11 @@ func (kv *ShardKV) Migrate(shard int) (bool, *BootstrapReply){
 					reply.ProducerGID = gid
 					reply.ConfigNum = args.ConfigNum
 					done0 <- true
+          
 					return
         }
       }
+
     }
   }(args, &reply, gid, servers)
 
