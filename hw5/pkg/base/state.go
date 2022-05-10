@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"hash/fnv"
 	"math/rand"
+	//"fmt"
 )
 
 type State struct {
@@ -186,7 +187,25 @@ func (s *State) isMessageReachable(index int) (bool, *State) {
 
 func (s *State) HandleMessage(index int, deleteMessage bool) (result []*State) {
 	//TODO: implement it
-	panic("implement me")
+	newStates := make([]*State, 0, 4)
+	message := s.Network[index]
+	destination := message.To()
+	handler := s.nodes[destination]
+
+	newNodes := handler.MessageHandler(message)
+
+	for _, node := range newNodes{
+		newState := s.Inherit(HandleEvent(message))
+
+		newState.UpdateNode(destination, node)
+		if deleteMessage{
+			newState.DeleteMessage(index)
+		}
+		newStates = append(newStates, newState)
+	}
+
+	//panic("implement me")
+	return newStates
 }
 
 func (s *State) DeleteMessage(index int) {
@@ -212,8 +231,10 @@ func (s *State) NextStates() []*State {
 	nextStates := make([]*State, 0, 4)
 
 	for i := range s.Network {
+		//fmt.Println("in next state handling", i)
 		// check if it is a local call
 		if s.isLocalCall(i) {
+			//fmt.Println("is local call", i)
 			newStates := s.HandleMessage(i, true)
 			nextStates = append(nextStates, newStates...)
 			continue
@@ -222,38 +243,75 @@ func (s *State) NextStates() []*State {
 		// check Network Partition
 		reachable, newState := s.isMessageReachable(i)
 		if !reachable {
+			//fmt.Println("is not reachable", i)
 			nextStates = append(nextStates, newState)
 			continue
 		}
 
 		// TODO: Drop off a message
 		if s.isDropOff {
+			//fmt.Println("is drop off", i)
+			newState := s.Inherit(DropOffEvent(s.Network[i]))
+			newState.DeleteMessage(i)
+			nextStates = append(nextStates, newState)
+			//fmt.Println(nextStates)
 		}
 
 		// TODO: Message arrives Normally. (use HandleMessage)
+		newStates := s.HandleMessage(i, true)
+		//fmt.Println("newState normal", newStates)
+		for _, state := range newStates{
+			nextStates = append(nextStates, state)
+		}
+		//fmt.Println("after normally", nextStates)
+
 
 		// TODO: Message arrives but the message is duplicated. The same message may come later again
 		// (use HandleMessage)
 		if s.isDuplicate {
-
+			newStates := s.HandleMessage(i, false)
+			for _, state := range newStates{
+				nextStates = append(nextStates, state)
+			}
+			//fmt.Println("after duplicate", nextStates)
 		}
 
 	}
-
+	//fmt.Println("nextStates out of for loop", nextStates)
 	// You must iterate through the addresses, because every iteration on map is random...
 	// Weird feature in Go
 	for _, address := range s.addresses {
 		node := s.nodes[address]
 
 		//TODO: call the timer (use TriggerNodeTimer)
+		triggeredState := s.TriggerNodeTimer(address, node)
+		for _, state := range triggeredState{
+			nextStates = append(nextStates, state)
+		}
 	}
+	//fmt.Println("nextStates after calling timer", nextStates)
 
 	return nextStates
 }
 
 func (s *State) TriggerNodeTimer(address Address, node Node) []*State {
+	newStates := make([]*State, 0, 4)
+
+	newNodes := node.TriggerTimer()
+
+	for _, node := range newNodes{
+		newTimer := node.NextTimer()
+		newState := s.Inherit(TriggerEvent(address, newTimer))
+
+		newState.UpdateNode(address, node)
+
+		newStates = append(newStates, newState)
+
+	}
+
 	//TODO: implement it
-	panic("implement me")
+	//panic("implement me")
+	return newStates
 
 }
 
@@ -265,7 +323,10 @@ func (s *State) RandomNextState() *State {
 		}
 		timerAddresses = append(timerAddresses, addr)
 	}
-
+	if len(s.Network) + len(timerAddresses) == 0 {
+		newState := s.Inherit(EmptyEvent())
+		return newState
+	}
 	roll := rand.Intn(len(s.Network) + len(timerAddresses))
 
 	if roll < len(s.Network) {
@@ -276,11 +337,29 @@ func (s *State) RandomNextState() *State {
 		}
 
 		//TODO: handle message and return one state
+		newStates := s.HandleMessage(roll, true)
+		//fmt.Println("newStates in message", newStates)
+		if len(newStates) > 0{
+			return newStates[0]
+		}else{
+			return nil
+		}
+		
 	}
 
 	// TODO: trigger timer and return one state
 	address := timerAddresses[roll-len(s.Network)]
 	node := s.nodes[address]
+
+	newStates := s.TriggerNodeTimer(address, node)
+	//fmt.Println("newStates in trigger", newStates)
+	if len(newStates) > 0{
+		return newStates[0]
+	}else{
+		return nil
+	}
+	
+
 
 }
 

@@ -15,6 +15,8 @@ type Node interface {
 	// next reply, or (2) directly enter the Accept phase. The difference between (1) and (2)
 	// could result from waiting time. Since the absolute time does not matter in a state
 	// machine, we need to consider both cases are potential next step.
+
+	//in pkg/pingpong && pkg/paxos
 	MessageHandler(message Message) []Node
 
 	// Get the next timer that will be triggered in this node
